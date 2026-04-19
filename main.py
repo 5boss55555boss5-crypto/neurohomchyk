@@ -207,8 +207,8 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply = response.choices[0].message.content
         await send_reply(message, reply)
 
-        # Голосове — 40% шанс
-        if random.random() < 0.40:
+        # Голосове — 100% для тесту
+        if True:
             try:
                 voice_response = await client.chat.completions.create(
                     model="gpt-4o",
