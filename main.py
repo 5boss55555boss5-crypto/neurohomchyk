@@ -5,8 +5,8 @@ import logging
 import sqlite3
 import tempfile
 from datetime import datetime
+import subprocess
 from gtts import gTTS
-from pydub import AudioSegment
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
 from openai import AsyncOpenAI
@@ -122,10 +122,11 @@ async def generate_voice(phrase: str) -> bytes:
     with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as mp3_file:
         tts.save(mp3_file.name)
         mp3_path = mp3_file.name
-    audio = AudioSegment.from_mp3(mp3_path)
-    with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as ogg_file:
-        ogg_path = ogg_file.name
-    audio.export(ogg_path, format="ogg", codec="libopus")
+    ogg_path = mp3_path.replace(".mp3", ".ogg")
+    subprocess.run(
+        ["ffmpeg", "-i", mp3_path, "-c:a", "libopus", ogg_path, "-y"],
+        check=True, capture_output=True
+    )
     os.unlink(mp3_path)
     with open(ogg_path, "rb") as f:
         data = f.read()
