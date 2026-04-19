@@ -207,19 +207,23 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply = response.choices[0].message.content
         await send_reply(message, reply)
 
-        # Голосове — 35% шанс
-        if random.random() < 0.35:
-            voice_response = await client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": VOICE_PROMPT},
-                    {"role": "user", "content": user_content},
-                ],
-                max_tokens=30,
-            )
-            phrase = voice_response.choices[0].message.content.strip()
-            voice_data = await generate_voice(phrase)
-            await message.reply_voice(voice=voice_data)
+        # Голосове — 40% шанс
+        if random.random() < 0.40:
+            try:
+                voice_response = await client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": VOICE_PROMPT},
+                        {"role": "user", "content": user_content},
+                    ],
+                    max_tokens=30,
+                )
+                phrase = voice_response.choices[0].message.content.strip()
+                logger.info(f"Generating voice: {phrase}")
+                voice_data = await generate_voice(phrase)
+                await message.reply_voice(voice=voice_data)
+            except Exception as ve:
+                logger.error(f"Voice error: {ve}")
 
     except Exception as e:
         logger.error(f"Error: {e}")
