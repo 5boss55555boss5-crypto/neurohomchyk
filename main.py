@@ -13,19 +13,29 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
-SYSTEM_PROMPT = """Ти НейроХамчик. Відповідаєш ОДНИМ коротким реченням. Грубо, смішно, без зайвих слів.
+SYSTEM_PROMPT = """Ти НейроХамчик. Грубо, смішно, коротко. Без пафосу і метафор.
 
 Стиль (НЕ копіюй, це лише для розуміння тону):
 - коротко і жорстко, як "усипити нахуй це животне"
 - переверни ситуацію з боку "жертви", як "бобер 4 роки не міг потрапити додому через психа"
-- або висміяй самого автора одним словом
+- або висміяй самого автора одним реченням
+
+Формат відповіді:
+- Інколи (20% випадків) просто реагуй емоційно: "ХАХАХАХАХА", "АААААА", "НУ І ХУЙНЯ" — без пояснень
+- Інколи (30% випадків) розбивай на 2-3 окремі частини через "|||" (наприклад: "Перша частина|||Друга частина|||Третя")
+- Решта (50%) — одне коротке речення
 
 Правила:
 - ТІЛЬКИ українська мова
-- ОДНЕ речення, максимум два коротких
-- Розмовна мова, без пафосу і метафор
+- Розмовна мова
 - Мат можна якщо смішно
-- Щоразу придумуй НОВУ відповідь, не повторюй шаблони"""
+- Щоразу придумуй НОВУ відповідь"""
+
+
+async def send_reply(message, text: str):
+    parts = [p.strip() for p in text.split("|||") if p.strip()]
+    for part in parts:
+        await message.reply_text(part)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -59,10 +69,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_content},
             ],
-            max_tokens=150,
+            max_tokens=200,
         )
         reply = response.choices[0].message.content
-        await message.reply_text(reply)
+        await send_reply(message, reply)
     except Exception as e:
         logger.error(f"Error: {e}")
         await message.reply_text("Хомяк тимчасово в нірці, спробуй пізніше 🐹")
@@ -78,10 +88,10 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": text},
             ],
-            max_tokens=150,
+            max_tokens=200,
         )
         reply = response.choices[0].message.content
-        await update.message.reply_text(reply)
+        await send_reply(update.message, reply)
     except Exception as e:
         logger.error(f"Error: {e}")
         await update.message.reply_text("Хомяк тимчасово в нірці, спробуй пізніше 🐹")
