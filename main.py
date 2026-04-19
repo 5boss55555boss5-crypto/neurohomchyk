@@ -60,10 +60,13 @@ def init_db():
     conn.close()
 
 
-def track_user(user_id: int, username: str, first_name: str):
+def track_user(user_id: int, username: str, first_name: str) -> bool:
+    """Returns True if this is a new user."""
     conn = sqlite3.connect("stats.db")
     c = conn.cursor()
     now = datetime.now().isoformat()
+    c.execute("SELECT 1 FROM users WHERE user_id = ?", (user_id,))
+    is_new = c.fetchone() is None
     c.execute("""
         INSERT INTO users (user_id, username, first_name, first_seen, last_seen, message_count)
         VALUES (?, ?, ?, ?, ?, 1)
@@ -73,6 +76,7 @@ def track_user(user_id: int, username: str, first_name: str):
     """, (user_id, username, first_name, now, now, now))
     conn.commit()
     conn.close()
+    return is_new
 
 
 def track_message(is_photo: bool = False):
@@ -109,9 +113,19 @@ async def send_reply(message, text: str):
         await message.reply_text(part)
 
 
+async def notify_new_user(context: ContextTypes.DEFAULT_TYPE, user):
+    username = f"@{user.username}" if user.username else "без username"
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=f"🐹 Новий користувач!\n👤 {user.first_name} ({username})\n🆔 {user.id}"
+    )
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    track_user(user.id, user.username or "", user.first_name or "")
+    is_new = track_user(user.id, user.username or "", user.first_name or "")
+    if is_new:
+        await notify_new_user(context, user)
     await update.message.reply_text(
         "Привіт, я НейроХамчик 🐹\nКидай фото або пиши що хочеш — прокоментую як вмію."
     )
@@ -135,7 +149,9 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     user = update.effective_user
-    track_user(user.id, user.username or "", user.first_name or "")
+    is_new = track_user(user.id, user.username or "", user.first_name or "")
+    if is_new:
+        await notify_new_user(context, user)
     track_message(is_photo=True)
     caption = message.caption or ""
 
@@ -168,7 +184,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
-    track_user(user.id, user.username or "", user.first_name or "")
+    is_new = track_user(user.id, user.username or "", user.first_name or "")
+    if is_new:
+        await notify_new_user(context, user)
     track_message(is_photo=False)
     text = update.message.text
 
