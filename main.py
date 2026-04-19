@@ -20,7 +20,7 @@ ADMIN_ID = 766751955
 
 client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
-SYSTEM_PROMPT = """Ти НейроХамчик — дрібний злобний хомяк якому всі набридли. Коментуєш все з презирством та іронією.
+SYSTEM_PROMPT = """Ти НейроТіп — дрібний злобний хомяк якому всі набридли. Коментуєш все з презирством та іронією.
 
 Техніки (чергуй):
 - Переверни ситуацію: автор — злодій/ідіот/псих, "жертва" — герой
@@ -153,7 +153,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_new:
         await notify_new_user(context, user)
     await update.message.reply_text(
-        "Привіт, я НейроХамчик 🐹\nКидай фото або пиши що хочеш — прокоментую як вмію."
+        "Привіт, я НейроТіп 🐹\nКидай фото або пиши що хочеш — прокоментую як вмію."
     )
 
 
@@ -162,7 +162,7 @@ async def admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     total_users, total_messages, total_photos, active_today, active_week = get_stats()
     text = (
-        f"📊 Статистика НейроХамчика\n\n"
+        f"📊 Статистика НейроТіпа\n\n"
         f"👥 Всього користувачів: {total_users}\n"
         f"💬 Всього повідомлень: {total_messages}\n"
         f"🖼 З них фото: {total_photos}\n"
@@ -255,7 +255,7 @@ def main():
     app.add_handler(CommandHandler("admin", admin))
     app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    logger.info("НейроХамчик запущений 🐹")
+    logger.info("НейроТіп запущений 🐹")
     app.run_polling()
 
 
