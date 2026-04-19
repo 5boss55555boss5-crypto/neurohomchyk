@@ -1,8 +1,12 @@
 import os
+import random
 import base64
 import logging
 import sqlite3
+import tempfile
 from datetime import datetime
+from gtts import gTTS
+from pydub import AudioSegment
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
 from openai import AsyncOpenAI
@@ -36,6 +40,11 @@ SYSTEM_PROMPT = """Ти НейроХамчик — дрібний злобний
 - Жодних "можливо", "мабуть", жодної доброти
 - Кожна відповідь унікальна"""
 
+VOICE_PROMPT = """Подивись на це фото і дай ОДНУ коротку фразу (3-7 слів) українською для голосового повідомлення.
+Фраза має бути смішна, груба або абсурдна — як реакція людини яка побачила щось дивне.
+Приклади стилю: "шо за хуйня тут відбувається", "мамо рідна", "я такого не замовляв", "виходжу з чату", "господи боже мій".
+Відповідай ТІЛЬКИ фразою, без лапок і пояснень."""
+
 
 def init_db():
     conn = sqlite3.connect("stats.db")
@@ -63,7 +72,6 @@ def init_db():
 
 
 def track_user(user_id: int, username: str, first_name: str) -> bool:
-    """Returns True if this is a new user."""
     conn = sqlite3.connect("stats.db")
     c = conn.cursor()
     now = datetime.now().isoformat()
@@ -107,6 +115,22 @@ def get_stats():
     active_week = c.fetchone()[0]
     conn.close()
     return total_users, total_messages, total_photos, active_today, active_week
+
+
+async def generate_voice(phrase: str) -> bytes:
+    tts = gTTS(text=phrase, lang="uk")
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as mp3_file:
+        tts.save(mp3_file.name)
+        mp3_path = mp3_file.name
+    audio = AudioSegment.from_mp3(mp3_path)
+    with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as ogg_file:
+        ogg_path = ogg_file.name
+    audio.export(ogg_path, format="ogg", codec="libopus")
+    os.unlink(mp3_path)
+    with open(ogg_path, "rb") as f:
+        data = f.read()
+    os.unlink(ogg_path)
+    return data
 
 
 async def send_reply(message, text: str):
@@ -169,6 +193,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_content.append({"type": "text", "text": caption})
 
     try:
+        # Текстова відповідь
         response = await client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -179,6 +204,21 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         reply = response.choices[0].message.content
         await send_reply(message, reply)
+
+        # Голосове — 35% шанс
+        if random.random() < 0.35:
+            voice_response = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": VOICE_PROMPT},
+                    {"role": "user", "content": user_content},
+                ],
+                max_tokens=30,
+            )
+            phrase = voice_response.choices[0].message.content.strip()
+            voice_data = await generate_voice(phrase)
+            await message.reply_voice(voice=voice_data)
+
     except Exception as e:
         logger.error(f"Error: {e}")
         await message.reply_text("Хомяк тимчасово в нірці, спробуй пізніше 🐹")
