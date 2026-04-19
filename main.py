@@ -3,9 +3,8 @@ import random
 import base64
 import logging
 import sqlite3
-import tempfile
 from datetime import datetime
-import subprocess
+import io
 from gtts import gTTS
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CommandHandler, filters, ContextTypes
@@ -118,21 +117,13 @@ def get_stats():
     return total_users, total_messages, total_photos, active_today, active_week
 
 
-async def generate_voice(phrase: str) -> bytes:
+async def generate_voice(phrase: str) -> io.BytesIO:
     tts = gTTS(text=phrase, lang="uk")
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as mp3_file:
-        tts.save(mp3_file.name)
-        mp3_path = mp3_file.name
-    ogg_path = mp3_path.replace(".mp3", ".ogg")
-    subprocess.run(
-        ["ffmpeg", "-i", mp3_path, "-c:a", "libopus", ogg_path, "-y"],
-        check=True, capture_output=True
-    )
-    os.unlink(mp3_path)
-    with open(ogg_path, "rb") as f:
-        data = f.read()
-    os.unlink(ogg_path)
-    return data
+    buf = io.BytesIO()
+    tts.write_to_fp(buf)
+    buf.seek(0)
+    buf.name = "voice.mp3"
+    return buf
 
 
 async def send_reply(message, text: str):
